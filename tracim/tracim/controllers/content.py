@@ -28,6 +28,7 @@ from tracim.controllers import TIMWorkspaceContentRestController
 from tracim.lib import CST
 from tracim.lib.base import BaseController
 from tracim.lib.base import logger
+from tracim.lib.exception import InvalidContentPathError
 from tracim.lib.integrity import render_invalid_integrity_chosen_path
 from tracim.lib.utils import SameValueError
 from tracim.lib.utils import get_valid_header_file_name
@@ -347,20 +348,24 @@ class UserWorkspaceFolderFileRestController(TIMWorkspaceContentRestController):
         folder = tmpl_context.folder
 
         api = ContentApi(tmpl_context.current_user)
-        with DBSession.no_autoflush:
-            file = api.create(ContentType.File, workspace, folder, label)
-            api.update_file_data(file,
-                                 file_data.filename,
-                                 file_data.type,
-                                 file_data.file.read())
-            # Display error page to user if chosen label is in conflict
-            if not self._path_validation.validate_new_content(file):
-                DBSession.rollback()
-                return render_invalid_integrity_chosen_path(
-                    file.get_label_as_file(),
-                )
-        api.save(file, ActionDescription.CREATION)
-
+        try:
+            file = api.create(
+                ContentType.File,
+                workspace,
+                folder,
+                label,
+                do_save=True,
+            )
+            api.update_file_data(
+                file,
+                file_data.filename,
+                file_data.type,
+                file_data.file.read(),
+            )
+        except InvalidContentPathError as e:
+            return render_invalid_integrity_chosen_path(
+                invalid_label=e.label_as_file,
+            )
         tg.flash(_('File created'), CST.STATUS_OK)
         redirect = '/workspaces/{}/folders/{}/files/{}'
         tg.redirect(tg.url(redirect).format(tmpl_context.workspace_id,
@@ -1006,13 +1011,14 @@ class UserWorkspaceFolderRestController(TIMRestControllerWithBreadcrumb):
                 parent = api.get_one(int(parent_id),
                                      ContentType.Folder,
                                      workspace)
-
-            with DBSession.no_autoflush:
-                folder = api.create(ContentType.Folder,
-                                    workspace,
-                                    parent,
-                                    label)
-
+            try:
+                folder = api.create(
+                    ContentType.Folder,
+                    workspace,
+                    parent,
+                    label,
+                    do_save=True,
+                )
                 subcontent = dict(
                     folder=True if can_contain_folders == 'on' else False,
                     thread=True if can_contain_threads == 'on' else False,
@@ -1020,15 +1026,10 @@ class UserWorkspaceFolderRestController(TIMRestControllerWithBreadcrumb):
                     page=True if can_contain_pages == 'on' else False
                 )
                 api.set_allowed_content(folder, subcontent)
-
-                if not self._path_validation.validate_new_content(folder):
-                    DBSession.rollback()
-                    return render_invalid_integrity_chosen_path(
-                        folder.get_label(),
-                    )
-
-            api.save(folder)
-
+            except InvalidContentPathError as e:
+                return render_invalid_integrity_chosen_path(
+                    invalid_label=e.label_as_file,
+                )
             tg.flash(_('Folder created'), CST.STATUS_OK)
             redirect_url = redirect_url_tmpl.format(tmpl_context.workspace_id,
                                                     folder.content_id)

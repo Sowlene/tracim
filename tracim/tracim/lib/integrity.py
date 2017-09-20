@@ -83,7 +83,12 @@ class PathValidationManager(object):
 
 def render_invalid_integrity_chosen_path(invalid_label: str) -> str:
     """
-    Return html page code of error about invalid label choice.
+    Display invalid label error page to user.
+
+    HACK - D.A - 2018-09-20
+    Dirty error management which allow:
+    - to click 'back' button in browser,
+    - to avoid data loss.
     :param invalid_label: the invalid label
     :return: html page code
     """

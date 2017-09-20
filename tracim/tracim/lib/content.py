@@ -27,6 +27,8 @@ from sqlalchemy import distinct
 from sqlalchemy import or_
 from sqlalchemy.sql.elements import and_
 from tracim.lib import cmp_to_key
+from tracim.lib.exception import InvalidContentPathError
+from tracim.lib.integrity import PathValidationManager
 from tracim.lib.notifications import NotifierFactory
 from tracim.lib.utils import SameValueError
 from tracim.model import DBSession
@@ -105,6 +107,7 @@ class ContentApi(object):
         self._show_all_type_of_contents_in_treeview = all_content_in_treeview
         self._force_show_all_types = force_show_all_types
         self._disable_user_workspaces_filter = disable_user_workspaces_filter
+        self._checker = PathValidationManager()
 
     @contextmanager
     def show(
@@ -368,7 +371,15 @@ class ContentApi(object):
 
         return result
 
-    def create(self, content_type: str, workspace: Workspace, parent: Content=None, label:str ='', do_save=False, is_temporary: bool=False) -> Content:
+    def create(
+            self,
+            content_type: str,
+            workspace: Workspace,
+            parent: Content=None,
+            label: str ='',
+            do_save: bool=False,
+            is_temporary: bool=False,
+    ) -> Content:
         assert content_type in ContentType.allowed_types()
 
         if content_type == ContentType.Folder and not label:
@@ -388,7 +399,9 @@ class ContentApi(object):
                 ContentType.Thread,
         ):
             content.file_extension = '.html'
-
+        if not self._checker.validate_new_content(content):
+            DBSession.rollback()
+            raise InvalidContentPathError
         if do_save:
             DBSession.add(content)
             self.save(content, ActionDescription.CREATION)
@@ -870,7 +883,8 @@ class ContentApi(object):
             raise SameValueError(_('The content did not changed'))
         item.owner = self._user
         item.label = new_label
-        item.description = new_content if new_content else item.description # TODO: convert urls into links
+        # TODO - D.A - 2014-12-04 convert urls into links
+        item.description = new_content if new_content else item.description
         item.revision_type = ActionDescription.EDITION
         return item
 
