@@ -1,31 +1,25 @@
 # -*- coding: utf-8 -*-
-from contextlib import contextmanager
-
-import os
-
-from operator import itemgetter
-from sqlalchemy import func
-from sqlalchemy.orm import Query
-
-__author__ = 'damien'
-
 import datetime
+import os
 import re
+from contextlib import contextmanager
+from operator import itemgetter
 
-import tg
-from tg.i18n import ugettext as _
-
-from depot.manager import DepotManager
 from depot.io.utils import FileIntent
-
+from depot.manager import DepotManager
 import sqlalchemy
+from sqlalchemy import desc
+from sqlalchemy import distinct
+from sqlalchemy import func
+from sqlalchemy import or_
+from sqlalchemy.orm import Query
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import get_history
-from sqlalchemy import desc
-from sqlalchemy import distinct
-from sqlalchemy import or_
 from sqlalchemy.sql.elements import and_
+import tg
+from tg.i18n import ugettext as _
+
 from tracim.lib import cmp_to_key
 from tracim.lib.exception import InvalidContentPathError
 from tracim.lib.integrity import PathValidationManager
@@ -36,14 +30,18 @@ from tracim.model import new_revision
 from tracim.model.auth import User
 from tracim.model.data import ActionDescription
 from tracim.model.data import BreadcrumbItem
-from tracim.model.data import ContentStatus
-from tracim.model.data import ContentRevisionRO
 from tracim.model.data import Content
+from tracim.model.data import ContentRevisionRO
+from tracim.model.data import ContentStatus
 from tracim.model.data import ContentType
 from tracim.model.data import NodeTreeItem
 from tracim.model.data import RevisionReadStatus
 from tracim.model.data import UserRoleInWorkspace
 from tracim.model.data import Workspace
+
+
+__author__ = 'damien'
+
 
 def compare_content_for_sorting_by_type_and_name(content1: Content,
                                                  content2: Content):
