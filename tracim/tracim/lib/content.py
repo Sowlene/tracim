@@ -22,7 +22,6 @@ from tg.i18n import ugettext as _
 
 from tracim.lib import cmp_to_key
 from tracim.lib.exception import InvalidContentPathError
-from tracim.lib.integrity import PathValidationManager
 from tracim.lib.notifications import NotifierFactory
 from tracim.lib.utils import SameValueError
 from tracim.model import DBSession
@@ -105,7 +104,6 @@ class ContentApi(object):
         self._show_all_type_of_contents_in_treeview = all_content_in_treeview
         self._force_show_all_types = force_show_all_types
         self._disable_user_workspaces_filter = disable_user_workspaces_filter
-        self._checker = PathValidationManager()
 
     @contextmanager
     def show(
@@ -397,14 +395,59 @@ class ContentApi(object):
                 ContentType.Thread,
         ):
             content.file_extension = '.html'
-        if not self._checker.validate_new_content(content):
-            DBSession.rollback()
-            raise InvalidContentPathError
         if do_save:
             DBSession.add(content)
             self.save(content, ActionDescription.CREATION)
+        if not self.is_path_valid(
+            filename=content.get_label_as_file(),
+            workspace=content.workspace,
+            parent=content.parent,
+            exclude_content_id=content.content_id,
+        ):
+            DBSession.rollback()
+            raise InvalidContentPathError(
+                filename=content.get_label_as_file()
+            )
         return content
 
+    def is_path_valid(
+            self,
+            filename: str,
+            workspace: Workspace,
+            parent: Content=None,
+            exclude_content_id: int=None,
+            is_case_sensitive: bool=False,
+    ) -> bool:
+        """
+        Validate the given content filename.
+
+        :param filename: content filename to validate
+        :param workspace:
+        :param parent:
+        :param exclude_content_id:
+        :param is_case_sensitive: case sensitivity indicator
+        :return: True if content filename is available, false otherwise
+        """
+        query = self.get_base_query(workspace)
+        if parent:
+            query = query.filter(
+                Content.parent_id == parent.content_id
+            )
+        if exclude_content_id:
+            query = query.filter(
+                Content.content_id != exclude_content_id
+            )
+        if workspace:
+            query = query.filter(
+                Content.workspace_id == workspace.workspace_id
+            )
+        return not bool(
+            self.filter_query_for_content_label_as_path(
+                query=query,
+                content_label_as_file=filename,
+                is_case_sensitive=is_case_sensitive,
+            ).count()
+        )
 
     def create_comment(self, workspace: Workspace=None, parent: Content=None, content:str ='', do_save=False) -> Content:
         assert parent  and parent.type!=ContentType.Folder

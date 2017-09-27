@@ -364,7 +364,7 @@ class UserWorkspaceFolderFileRestController(TIMWorkspaceContentRestController):
             )
         except InvalidContentPathError as e:
             return render_invalid_integrity_chosen_path(
-                invalid_label=e.label_as_file,
+                invalid_label=e.filename,
             )
         tg.flash(_('File created'), CST.STATUS_OK)
         redirect = '/workspaces/{}/folders/{}/files/{}'

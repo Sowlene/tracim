@@ -35,11 +35,11 @@ class CommandAbortedError(CommandError):
 
 class InvalidContentPathError(TracimError):
     """
-    Exception raised for errors in content path.
+    Exception raised when a content filename already exists.
 
     Attributes:
-        label_as_file -- content label that already exists
+        filename -- content filename that already exists
     """
 
-    def __init__(self, label_as_file):
-        self.label_as_file = label_as_file
+    def __init__(self, filename):
+        self.filename = filename
